@@ -1,11 +1,12 @@
-#[derive(Debug)]
-struct DatabaseConfig {
-    url: String
-}
-
 use std::env;
+
 use dotenvy::dotenv;
 use tokio::sync::OnceCell;
+
+#[derive(Debug)]
+struct DatabaseConfig {
+    url: String,
+}
 
 #[derive(Debug)]
 struct ServerConfig {
@@ -17,6 +18,7 @@ struct ServerConfig {
 pub struct Config {
     server: ServerConfig,
     db: DatabaseConfig,
+    bot_token: String,
 }
 
 impl Config {
@@ -30,6 +32,10 @@ impl Config {
 
     pub fn server_host(&self) -> &str {
         &self.server.host
+    }
+
+    pub fn bot_token(&self) -> &str {
+        &self.bot_token
     }
 }
 
@@ -54,6 +60,7 @@ async fn init_config() -> Config {
     Config {
         server: server_config,
         db: database_config,
+        bot_token: env::var("BOT_TOKEN").expect("BOT_TOKEN must be set"),
     }
 }
 

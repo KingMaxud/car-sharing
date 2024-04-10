@@ -1,0 +1,111 @@
+use diesel::{
+    Associations, ExpressionMethods, Insertable, Queryable, QueryDsl, RunQueryDsl, Selectable,
+    SelectableHelper,
+};
+use diesel::associations::HasTable;
+use serde::{Deserialize, Serialize};
+use tracing::log::debug;
+use uuid::Uuid;
+
+use crate::error::{CarSharingError, Result};
+use crate::infra::{Random, services::users_service::UserDb};
+use crate::infra::db::schema::{sessions, users};
+use crate::models::session_token::SessionToken;
+
+#[derive(Serialize, Queryable, Selectable, Associations)]
+#[diesel(belongs_to(UserDb, foreign_key = user_id))]
+#[diesel(table_name = sessions)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct SessionDb {
+    pub session_token: Vec<u8>,
+    pub user_id: Uuid,
+}
+
+#[derive(Deserialize, Insertable)]
+#[diesel(table_name = sessions)]
+pub struct NewSession {
+    session_token: Vec<u8>,
+    user_id: Uuid,
+}
+
+pub async fn new_session(
+    pool: &deadpool_diesel::postgres::Pool,
+    user_id: Uuid,
+    random: Random,
+) -> Result<SessionToken> {
+    debug!("->> {:<12} - new_session", "INFRASTRUCTURE");
+
+    // Get a database connection from the pool and handle any potential errors
+    let conn = pool.get().await.map_err(|err| CarSharingError::from(err))?;
+
+    let session_token = SessionToken::generate_new(random);
+
+    // Save the session token in the database
+    conn.interact(move |conn| {
+        let new_session = NewSession {
+            session_token: session_token.into_database_value(),
+            user_id,
+        };
+
+        diesel::insert_into(sessions::table)
+            .values(new_session)
+            .returning(SessionDb::as_returning())
+            .get_result(conn)
+    })
+    .await
+    .map_err(|err| CarSharingError::from(err))?
+    .map_err(|err| CarSharingError::from(err))?;
+
+    Ok(session_token)
+}
+
+pub async fn get_telegram_id_by_token(
+    pool: &deadpool_diesel::postgres::Pool,
+    session_token: String,
+) -> Result<i32> {
+    debug!("->> {:<12} - get_telegram_id_by_token", "INFRASTRUCTURE");
+
+    // Get a database connection from the pool and handle any potential errors
+    let conn = pool.get().await.map_err(|err| CarSharingError::from(err))?;
+
+    // Convert String to Vec<u8>
+    let session_token_bytes = session_token.as_bytes().to_vec();
+
+    let telegram_id = conn
+        .interact(|conn| {
+            sessions::table
+                .filter(sessions::session_token.eq(session_token_bytes))
+                .inner_join(users::table)
+                .select(users::telegram_id)
+                .first::<i32>(conn)
+            // .select(sessions::user_id)
+            // .get_results(conn)
+        })
+        .await
+        .map_err(|err| CarSharingError::from(err))?
+        .map_err(|err| CarSharingError::from(err))?;
+
+    Ok(telegram_id)
+}
+
+pub async fn delete_session(
+    pool: &deadpool_diesel::postgres::Pool,
+    session_token: String,
+) -> Result<()> {
+    debug!("->> {:<12} - delete_session", "INFRASTRUCTURE");
+
+    // Get a database connection from the pool and handle any potential errors
+    let conn = pool.get().await.map_err(|err| CarSharingError::from(err))?;
+
+    // Convert String to Vec<u8>
+    let session_token_bytes = session_token.as_bytes().to_vec();
+
+    let _ = conn
+        .interact(move |_| {
+            diesel::delete(sessions::table.filter(sessions::session_token.eq(session_token_bytes)))
+        })
+        .await
+        .map_err(|err| CarSharingError::from(err))?;
+
+    Ok(())
+}

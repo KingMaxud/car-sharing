@@ -1,12 +1,9 @@
-use diesel::{
-    Queryable, Selectable,
-};
-use serde::Serialize;
+// use diesel::{Queryable, Selectable};
+// use serde::Serialize;
+//
+// #[derive(Serialize, Queryable, Selectable)]
+// #[diesel(table_name = orders)]
+// #[diesel(check_for_backend(diesel::pg::Pg))]
+// pub struct OrderDb {}
 
-#[derive(Serialize, Queryable, Selectable)]
-#[diesel(table_name = oauth2_records)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct Order {}
-
-pub async fn _gg(pool: &deadpool_diesel::postgres::Pool) -> Result<(), InfraError> {}
-
+// pub async fn _gg(pool: &deadpool_diesel::postgres::Pool) -> Result<> {}

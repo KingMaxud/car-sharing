@@ -1,12 +1,15 @@
-use deadpool_diesel::postgres::{Pool, Manager};
+use deadpool_diesel::postgres::{Manager, Pool};
 use tracing::log::debug;
+
 use crate::config::config;
 use crate::routes::app_router;
 
-mod handlers;
-mod models;
-mod infra;
 mod config;
+mod error;
+mod handlers;
+mod infra;
+mod middlewares;
+mod models;
 mod routes;
 
 #[derive(Clone)]
@@ -28,7 +31,7 @@ async fn main() {
 
     let state = AppState { pool };
 
-    let app = app_router(state.clone()).with_state(state);
+    let app = app_router(state.clone());
 
     let host = config.server_host();
     let port = config.server_port();
@@ -38,5 +41,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
     debug!("LISTENING on {:?}\n", listener.local_addr().unwrap());
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app.into_make_service())
+        .await
+        .unwrap();
 }
