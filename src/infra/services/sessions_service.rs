@@ -47,6 +47,8 @@ pub async fn new_session(
             user_id,
         };
 
+        println!("we are here");
+
         diesel::insert_into(sessions::table)
             .values(new_session)
             .returning(SessionDb::as_returning())

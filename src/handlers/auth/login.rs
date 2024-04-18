@@ -1,19 +1,24 @@
 use axum::{
     extract::State,
-    Json,
     response::{IntoResponse, Redirect},
+    Extension, Json,
 };
 use hex::encode;
 use ring::{
     digest,
-    hmac::{HMAC_SHA256, Key, sign},
+    hmac::{sign, Key, HMAC_SHA256},
 };
 use serde::Deserialize;
 use tower_cookies::{Cookie, Cookies};
+use tracing::debug;
+use uuid::Uuid;
 
-use crate::AppState;
 use crate::config::config;
+use crate::handlers::auth::UserData;
+use crate::infra::services::{sessions_service, users_service};
+use crate::infra::Random;
 use crate::models::AuthError;
+use crate::AppState;
 
 async fn verify_telegram_hash(telegram_response: TelegramLoginResponse) -> Result<(), AuthError> {
     let config = config().await;
@@ -77,45 +82,34 @@ impl Clone for TelegramLoginResponse {
         }
     }
 }
-// TODO login_res + cookies NOT WORKING
 
 pub async fn login(
+    cookies: Cookies,
+    Extension(user_data): Extension<Option<UserData>>,
+    Extension(random): Extension<Random>,
     State(state): State<AppState>,
     Json(login_res): Json<TelegramLoginResponse>,
-    cookies: Cookies,
 ) -> Result<impl IntoResponse, AuthError> {
-    Ok(Redirect::to("/"))
-}
+    debug!("->> {:<12} - login", "HANDLER");
 
-async fn logingg(
-    State(state): State<AppState>,
-    Json(login_res): Json<TelegramLoginResponse>,
-    // Extension(random): Extension<Random>,
-    // Extension(user_data): Extension<Option<UserData>>,
-    cookies: Cookies,
-) -> Result<impl IntoResponse, AuthError> {
-    verify_telegram_hash(login_res.clone()).await.unwrap();
-    // Check if the user with the corresponding Telegram ID already exists in your database. If not — create a new one
-    // let user_id = users_service::insert_if_not_exists(&state.pool, login_res.id.clone())
-    //     .await
-    //     .map_err(AuthError::CarSharingError)?;
-    //
-    // // Generate a unique session identifier
-    // let session_token = sessions_service::new_session(&state.pool, user_id, random)
-    //     .await
-    //     .map_err(AuthError::CarSharingError)?;
+    // TODO the trait `From<fn(CarSharingError) -> AuthError {AuthError::CarSharingError}>. Где этот долбаеб взял fn я вообще не ебу
+    // create new user if not exist
+    let user_id = users_service::insert_if_not_exists(&state.pool, login_res.id.clone())
+        .await
+        .map_err(|err| AuthError::CarSharingError)?;
 
-    // if user_data.is_some() {
-    //     // check if already authenticated
-    //     return Ok(Redirect::to("/"));
-    // }
+    // check if already authenticated
+    if user_data.is_some() {
+        return Ok(Redirect::to("/"));
+    }
 
-    // let headers = axum::response::AppendHeaders([(
-    //     axum::http::header::SET_COOKIE,
-    //     "session_token=".to_owned() + "zalupa" + "; path=/; httponly; secure; samesite=strict",
-    // )]);
+    verify_telegram_hash(login_res.clone()).await?;
 
-    let mut cookie = Cookie::new("session_token", "zalupa");
+    let session_token = sessions_service::new_session(&state.pool, user_id, random)
+        .await
+        .map_err(AuthError::CarSharingError)?;
+
+    let mut cookie = Cookie::new("session_token", session_token.into_cookie_value());
 
     cookie.set_http_only(true);
     cookie.set_path("/");

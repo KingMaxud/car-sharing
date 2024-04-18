@@ -1,3 +1,4 @@
+use axum::Router;
 use deadpool_diesel::postgres::{Manager, Pool};
 use tracing::log::debug;
 
@@ -31,7 +32,7 @@ async fn main() {
 
     let state = AppState { pool };
 
-    let app = app_router(state.clone());
+    let app = Router::new().nest("/api", app_router(state.clone()));
 
     let host = config.server_host();
     let port = config.server_port();

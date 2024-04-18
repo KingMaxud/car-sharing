@@ -9,7 +9,7 @@ edition = "2021"
 axum = { version = "0.7.4" }
 axum-extra = { version = "0.9.2", features = ["typed-header"] }
 diesel = { version = "2.1.4", features = ["postgres", "uuid", "serde_json", "chrono"] }
-deadpool-diesel = { version = "0.5.0", features = ["postgres"] }
+deadpool-diesel = { version = "0.6.0", features = ["postgres"] }
 tokio = { version = "1.35.1", features = ["full"] }
 dotenvy = "0.15.7"
 serde = { version = "1.0.196", features = ["derive"] }

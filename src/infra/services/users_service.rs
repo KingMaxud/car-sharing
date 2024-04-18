@@ -30,6 +30,8 @@ pub async fn insert_if_not_exists(
     pool: &deadpool_diesel::postgres::Pool,
     telegram_id: i32,
 ) -> Result<Uuid> {
+    use crate::infra::db::schema::users::dsl::users;
+
     debug!("->> {:<12} - insert_if_not_exists", "INFRASTRUCTURE");
 
     // Get a database connection from the pool and handle any potential errors
@@ -37,7 +39,7 @@ pub async fn insert_if_not_exists(
 
     let existing_user = conn
         .interact(move |conn| {
-            users::table
+            users
                 .filter(users::telegram_id.eq(telegram_id))
                 .first::<UserDb>(conn)
                 .optional()
@@ -53,14 +55,14 @@ pub async fn insert_if_not_exists(
             let id = conn
                 .interact(move |conn| {
                     let new_user = NewUserDb { telegram_id }; // Create a new user struct
-                    diesel::insert_into(users::table)
+                    diesel::insert_into(users)
                         .values(&new_user)
                         .returning(users::id)
                         .get_result(conn)
                 })
                 .await
-                .map_err(|err| CarSharingError::from(err))?
-                .map_err(|err| CarSharingError::from(err))?;
+                .map_err(CarSharingError::DatabaseNotFound)?
+                .map_err(CarSharingError::DatabaseNotFound)?;
 
             id
         }
