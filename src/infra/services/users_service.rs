@@ -1,12 +1,12 @@
 use chrono::NaiveDateTime;
-use diesel::{
-    ExpressionMethods, Insertable, OptionalExtension, Queryable, QueryDsl, RunQueryDsl, Selectable,
-};
+use diesel::{ExpressionMethods, Insertable, OptionalExtension, Queryable, QueryDsl, Selectable};
+use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use tracing::log::debug;
 use uuid::Uuid;
 
 use crate::error::{CarSharingError, Result};
+use crate::handlers::{DbPool, get_conn};
 use crate::infra::db::schema::users;
 
 #[derive(Serialize, Queryable, Selectable)]
@@ -26,45 +26,30 @@ pub struct NewUserDb {
     pub telegram_id: i32,
 }
 
-pub async fn insert_if_not_exists(
-    pool: &deadpool_diesel::postgres::Pool,
-    telegram_id: i32,
-) -> Result<Uuid> {
-    use crate::infra::db::schema::users::dsl::users;
-
+pub async fn insert_if_not_exists(pool: &DbPool, telegram_id: i32) -> Result<Uuid> {
     debug!("->> {:<12} - insert_if_not_exists", "INFRASTRUCTURE");
 
     // Get a database connection from the pool and handle any potential errors
-    let conn = pool.get().await.map_err(|err| CarSharingError::from(err))?;
+    let conn = &mut get_conn(pool).await?;
 
-    let existing_user = conn
-        .interact(move |conn| {
-            users
-                .filter(users::telegram_id.eq(telegram_id))
-                .first::<UserDb>(conn)
-                .optional()
-        })
+    let existing_user = users::table
+        .filter(users::telegram_id.eq(telegram_id))
+        .first::<UserDb>(conn)
         .await
-        .map_err(|err| CarSharingError::from(err))?
+        .optional()
         .map_err(|err| CarSharingError::from(err))?;
 
     // Create new user if necessary
     let user_id = match existing_user {
         Some(user) => user.id, // User already exists, use their ID
         None => {
-            let id = conn
-                .interact(move |conn| {
-                    let new_user = NewUserDb { telegram_id }; // Create a new user struct
-                    diesel::insert_into(users)
-                        .values(&new_user)
-                        .returning(users::id)
-                        .get_result(conn)
-                })
+            let new_user = NewUserDb { telegram_id }; // Create a new user struct
+            diesel::insert_into(users::table)
+                .values(&new_user)
+                .returning(users::id)
+                .get_result(conn)
                 .await
-                .map_err(CarSharingError::DatabaseNotFound)?
-                .map_err(CarSharingError::DatabaseNotFound)?;
-
-            id
+                .map_err(|err| CarSharingError::from(err))?
         }
     };
 

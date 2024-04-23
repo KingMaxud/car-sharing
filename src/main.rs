@@ -1,5 +1,4 @@
 use axum::Router;
-use deadpool_diesel::postgres::{Manager, Pool};
 use tracing::log::debug;
 
 use crate::config::config;
@@ -13,26 +12,13 @@ mod middlewares;
 mod models;
 mod routes;
 
-#[derive(Clone)]
-pub struct AppState {
-    pool: Pool,
-}
-
 #[tokio::main]
 async fn main() {
     let config = config().await;
 
     env_logger::init();
 
-    let manager = Manager::new(
-        config.db_url().to_string(),
-        deadpool_diesel::Runtime::Tokio1,
-    );
-    let pool = Pool::builder(manager).build().unwrap();
-
-    let state = AppState { pool };
-
-    let app = Router::new().nest("/api", app_router(state.clone()));
+    let app = Router::new().nest("/api", app_router(config.db_url()).await);
 
     let host = config.server_host();
     let port = config.server_port();

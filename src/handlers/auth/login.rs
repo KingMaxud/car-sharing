@@ -1,24 +1,21 @@
-use axum::{
-    extract::State,
-    response::{IntoResponse, Redirect},
-    Extension, Json,
-};
+use axum::{Extension, Json};
+use axum::extract::State;
+use axum::response::{IntoResponse, Redirect};
 use hex::encode;
 use ring::{
     digest,
-    hmac::{sign, Key, HMAC_SHA256},
+    hmac::{HMAC_SHA256, Key, sign},
 };
 use serde::Deserialize;
 use tower_cookies::{Cookie, Cookies};
-use tracing::debug;
-use uuid::Uuid;
+use tracing::log::debug;
 
 use crate::config::config;
 use crate::handlers::auth::UserData;
-use crate::infra::services::{sessions_service, users_service};
+use crate::handlers::DbPool;
 use crate::infra::Random;
+use crate::infra::services::{sessions_service, users_service};
 use crate::models::AuthError;
-use crate::AppState;
 
 async fn verify_telegram_hash(telegram_response: TelegramLoginResponse) -> Result<(), AuthError> {
     let config = config().await;
@@ -87,16 +84,13 @@ pub async fn login(
     cookies: Cookies,
     Extension(user_data): Extension<Option<UserData>>,
     Extension(random): Extension<Random>,
-    State(state): State<AppState>,
+    State(pool): State<DbPool>,
     Json(login_res): Json<TelegramLoginResponse>,
 ) -> Result<impl IntoResponse, AuthError> {
     debug!("->> {:<12} - login", "HANDLER");
 
-    // TODO the trait `From<fn(CarSharingError) -> AuthError {AuthError::CarSharingError}>. Где этот долбаеб взял fn я вообще не ебу
     // create new user if not exist
-    let user_id = users_service::insert_if_not_exists(&state.pool, login_res.id.clone())
-        .await
-        .map_err(|err| AuthError::CarSharingError)?;
+    let user_id = users_service::insert_if_not_exists(&pool, login_res.id.clone()).await?;
 
     // check if already authenticated
     if user_data.is_some() {
@@ -105,7 +99,7 @@ pub async fn login(
 
     verify_telegram_hash(login_res.clone()).await?;
 
-    let session_token = sessions_service::new_session(&state.pool, user_id, random)
+    let session_token = sessions_service::new_session(&pool, user_id, random)
         .await
         .map_err(AuthError::CarSharingError)?;
 
@@ -113,7 +107,8 @@ pub async fn login(
 
     cookie.set_http_only(true);
     cookie.set_path("/");
+    cookie.set_secure(true);
     cookies.add(cookie);
 
-    Ok(Redirect::to("/"))
+    Ok(Redirect::to("/api"))
 }

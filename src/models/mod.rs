@@ -18,6 +18,12 @@ pub enum AuthError {
     AuthFailNoUserDataInRequest,
 }
 
+impl From<CarSharingError> for AuthError {
+    fn from(value: CarSharingError) -> Self {
+        AuthError::CarSharingError(value)
+    }
+}
+
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
         let (status, err_msg) = match self {

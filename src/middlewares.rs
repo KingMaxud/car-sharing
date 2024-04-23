@@ -3,13 +3,13 @@ use axum_extra::TypedHeader;
 use headers::Cookie;
 use tracing::log::debug;
 
-use crate::AppState;
 use crate::handlers::auth::UserData;
+use crate::handlers::DbPool;
 use crate::infra::services::sessions_service;
 use crate::models::AuthError;
 
 pub async fn inject_user_data(
-    State(state): State<AppState>,
+    State(pool): State<&DbPool>,
     cookie: Option<TypedHeader<Cookie>>,
     mut request: Request<Body>,
     next: Next,
@@ -18,12 +18,10 @@ pub async fn inject_user_data(
 
     if let Some(cookie) = cookie {
         if let Some(session_token) = cookie.get("session_token") {
-            let telegram_id = sessions_service::get_telegram_id_by_token(
-                &state.pool,
-                String::from(session_token),
-            )
-            .await
-            .map_err(AuthError::CarSharingError);
+            let telegram_id =
+                sessions_service::get_telegram_id_by_token(&pool, String::from(session_token))
+                    .await
+                    .map_err(AuthError::CarSharingError);
 
             if let Ok(telegram_id) = telegram_id {
                 request
