@@ -10,7 +10,7 @@ pub mod order;
 pub mod session_token;
 pub mod user;
 
-#[derive(Debug)]
+#[derive(Debug, strum_macros::AsRefStr)]
 pub enum AuthError {
     TelegramHashProblem,
     InternalServerError,

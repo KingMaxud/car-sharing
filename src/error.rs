@@ -1,4 +1,5 @@
 use std::fmt::Formatter;
+use std::num::ParseIntError;
 
 use deadpool_diesel::{InteractError, PoolError};
 
@@ -7,6 +8,7 @@ pub enum CarSharingError {
     DatabasePoolError(PoolError),
     DatabaseInteractionError(InteractError),
     DatabaseDieselError(diesel::result::Error),
+    DatabaseIntParsingError(ParseIntError),
     DatabaseNotFound,
 }
 
@@ -39,6 +41,12 @@ impl From<diesel::result::Error> for CarSharingError {
             diesel::result::Error::NotFound => CarSharingError::DatabaseNotFound,
             _ => CarSharingError::DatabaseDieselError(err),
         }
+    }
+}
+
+impl From<ParseIntError> for CarSharingError {
+    fn from(value: ParseIntError) -> Self {
+        CarSharingError::DatabaseIntParsingError(value)
     }
 }
 

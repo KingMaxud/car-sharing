@@ -34,3 +34,4 @@ rand_core = "0.6.4"
 tower-cookies = "0.10.0"
 bb8 = "0.8.3"
 diesel-async = { version = "0.4.1", features = ["postgres", "bb8"] }
+strum_macros = "0.26.2"

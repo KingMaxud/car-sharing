@@ -1,20 +1,20 @@
-use axum::{Extension, Json};
 use axum::extract::State;
 use axum::response::{IntoResponse, Redirect};
+use axum::{Extension, Json};
 use hex::encode;
 use ring::{
     digest,
-    hmac::{HMAC_SHA256, Key, sign},
+    hmac::{sign, Key, HMAC_SHA256},
 };
 use serde::Deserialize;
 use tower_cookies::{Cookie, Cookies};
 use tracing::log::debug;
 
 use crate::config::config;
-use crate::handlers::auth::UserData;
+use crate::handlers::auth::{UserData, SESSION_TOKEN};
 use crate::handlers::DbPool;
-use crate::infra::Random;
 use crate::infra::services::{sessions_service, users_service};
+use crate::infra::Random;
 use crate::models::AuthError;
 
 async fn verify_telegram_hash(telegram_response: TelegramLoginResponse) -> Result<(), AuthError> {
@@ -103,7 +103,9 @@ pub async fn login(
         .await
         .map_err(AuthError::CarSharingError)?;
 
-    let mut cookie = Cookie::new("session_token", session_token.into_cookie_value());
+    let cookie_session = session_token.into_cookie_value();
+
+    let mut cookie = Cookie::new(SESSION_TOKEN, cookie_session);
 
     cookie.set_http_only(true);
     cookie.set_path("/");

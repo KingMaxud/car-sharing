@@ -19,6 +19,6 @@ pub async fn logout(
             .map_err(AuthError::CarSharingError)?;
     }
 
-    cookies.remove(Cookie::from(SESSION_TOKEN));
+    cookies.remove(Cookie::from(Cookie::build(SESSION_TOKEN).path("/")));
     Ok(Redirect::to("/"))
 }

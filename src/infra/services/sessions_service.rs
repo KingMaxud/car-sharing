@@ -12,7 +12,7 @@ use crate::infra::{Random, services::users_service::UserDb};
 use crate::infra::db::schema::{sessions, users};
 use crate::models::session_token::SessionToken;
 
-#[derive(Serialize, Queryable, Selectable, Associations)]
+#[derive(Debug, Serialize, Queryable, Selectable, Associations)]
 #[diesel(belongs_to(UserDb, foreign_key = user_id))]
 #[diesel(table_name = sessions)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -48,22 +48,21 @@ pub async fn new_session(pool: &DbPool, user_id: Uuid, random: Random) -> Result
         .await
         .map_err(|err| CarSharingError::from(err))?;
 
-    // TODO this works, but further — BUGGED
-
     Ok(session_token)
 }
 
-pub async fn get_telegram_id_by_token(pool: &DbPool, session_token: String) -> Result<i32> {
+pub async fn get_telegram_id_by_token(pool: &DbPool, token: String) -> Result<i32> {
+    use crate::infra::db::schema::sessions::dsl::*;
     debug!("->> {:<12} - get_telegram_id_by_token", "INFRASTRUCTURE");
 
     // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
     // Convert String to Vec<u8>
-    let session_token_bytes = session_token.as_bytes().to_vec();
+    let session_token_bytes = token.parse::<u128>()?.to_le_bytes().to_vec();
 
-    let telegram_id = sessions::table
-        .filter(sessions::session_token.eq(session_token_bytes))
+    let telegram_id = sessions
+        .filter(session_token.eq(session_token_bytes))
         .inner_join(users::table)
         .select(users::telegram_id)
         .first::<i32>(conn)
@@ -73,8 +72,8 @@ pub async fn get_telegram_id_by_token(pool: &DbPool, session_token: String) -> R
     Ok(telegram_id)
 }
 
-pub async fn delete_session(pool: &DbPool, session_token: String) -> Result<()> {
-    // use crate::infra::db::schema::sessions::dsl;
+pub async fn delete_session(pool: &DbPool, token: String) -> Result<()> {
+    use crate::infra::db::schema::sessions::dsl::*;
 
     debug!("->> {:<12} - delete_session", "INFRASTRUCTURE");
 
@@ -82,9 +81,9 @@ pub async fn delete_session(pool: &DbPool, session_token: String) -> Result<()> 
     let conn = &mut get_conn(pool).await?;
 
     // Convert String to Vec<u8>
-    let session_token_bytes = session_token.as_bytes().to_vec();
+    let session_token_bytes = token.parse::<u128>()?.to_le_bytes().to_vec();
 
-    diesel::delete(sessions::table.filter(sessions::session_token.eq(session_token_bytes)))
+    diesel::delete(sessions.filter(session_token.eq(session_token_bytes)))
         .execute(conn)
         .await
         .map_err(|err| CarSharingError::from(err))?;
