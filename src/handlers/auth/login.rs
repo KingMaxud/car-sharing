@@ -1,23 +1,25 @@
+use axum::{Extension, Json};
 use axum::extract::State;
 use axum::response::{IntoResponse, Redirect};
-use axum::{Extension, Json};
 use hex::encode;
 use ring::{
     digest,
-    hmac::{sign, Key, HMAC_SHA256},
+    hmac::{HMAC_SHA256, Key, sign},
 };
 use serde::Deserialize;
 use tower_cookies::{Cookie, Cookies};
 use tracing::log::debug;
 
 use crate::config::config;
-use crate::handlers::auth::{UserData, SESSION_TOKEN};
+use crate::handlers::auth::{SESSION_TOKEN, UserData};
 use crate::handlers::DbPool;
-use crate::infra::services::{sessions_service, users_service};
 use crate::infra::Random;
-use crate::models::AuthError;
+use crate::infra::services::{sessions_service, users_service};
+use crate::models::HandlerError;
 
-async fn verify_telegram_hash(telegram_response: TelegramLoginResponse) -> Result<(), AuthError> {
+async fn verify_telegram_hash(
+    telegram_response: TelegramLoginResponse,
+) -> Result<(), HandlerError> {
     let config = config().await;
 
     // Generate the secret key using SHA-256 hash of the bot token
@@ -49,7 +51,7 @@ async fn verify_telegram_hash(telegram_response: TelegramLoginResponse) -> Resul
     let signature_value = sign(&key, data_check_string.as_ref());
 
     if encode(signature_value) != telegram_response.hash {
-        Err(AuthError::TelegramHashProblem)
+        Err(HandlerError::TelegramHashProblem)
     } else {
         Ok(())
     }
@@ -86,7 +88,7 @@ pub async fn login(
     Extension(random): Extension<Random>,
     State(pool): State<DbPool>,
     Json(login_res): Json<TelegramLoginResponse>,
-) -> Result<impl IntoResponse, AuthError> {
+) -> Result<impl IntoResponse, HandlerError> {
     debug!("->> {:<12} - login", "HANDLER");
 
     // create new user if not exist
@@ -101,7 +103,7 @@ pub async fn login(
 
     let session_token = sessions_service::new_session(&pool, user_id, random)
         .await
-        .map_err(AuthError::CarSharingError)?;
+        .map_err(HandlerError::CarSharingError)?;
 
     let cookie_session = session_token.into_cookie_value();
 

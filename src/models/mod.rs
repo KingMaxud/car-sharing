@@ -11,20 +11,18 @@ pub mod session_token;
 pub mod user;
 
 #[derive(Debug, strum_macros::AsRefStr)]
-pub enum AuthError {
+pub enum HandlerError {
     TelegramHashProblem,
-    InternalServerError,
     CarSharingError(CarSharingError),
-    AuthFailNoUserDataInRequest,
 }
 
-impl From<CarSharingError> for AuthError {
+impl From<CarSharingError> for HandlerError {
     fn from(value: CarSharingError) -> Self {
-        AuthError::CarSharingError(value)
+        HandlerError::CarSharingError(value)
     }
 }
 
-impl IntoResponse for AuthError {
+impl IntoResponse for HandlerError {
     fn into_response(self) -> Response {
         let (status, err_msg) = match self {
             Self::CarSharingError(db_error) => (

@@ -6,20 +6,20 @@ use tracing::log::debug;
 use crate::handlers::auth::{SESSION_TOKEN, UserData};
 use crate::handlers::DbPool;
 use crate::infra::services::sessions_service;
-use crate::models::AuthError;
+use crate::models::HandlerError;
 
 pub async fn inject_user_data(
     State(pool): State<DbPool>,
     cookies: Cookies,
     mut request: Request<Body>,
     next: Next,
-) -> Result<impl IntoResponse, AuthError> {
+) -> Result<impl IntoResponse, HandlerError> {
     debug!("->> {:<12} - inject_user_data", "MIDDLEWARE");
 
     if let Some(session_token) = cookies.get(SESSION_TOKEN).map(|c| c.value().to_string()) {
         let telegram_id = sessions_service::get_telegram_id_by_token(&pool, session_token)
             .await
-            .map_err(AuthError::CarSharingError);
+            .map_err(HandlerError::CarSharingError);
 
         if let Ok(telegram_id) = telegram_id {
             request.extensions_mut().insert(UserData { telegram_id });
@@ -29,7 +29,10 @@ pub async fn inject_user_data(
     Ok(next.run(request).await)
 }
 
-pub async fn require_auth(req: Request<Body>, next: Next) -> Result<impl IntoResponse, AuthError> {
+pub async fn require_auth(
+    req: Request<Body>,
+    next: Next,
+) -> Result<impl IntoResponse, HandlerError> {
     debug!("->> {:<12} - require_auth", "MIDDLEWARE");
 
     if req.extensions().get::<UserData>().is_some() {
