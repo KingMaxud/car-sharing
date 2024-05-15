@@ -51,7 +51,7 @@ pub async fn new_session(pool: &DbPool, user_id: Uuid, random: Random) -> Result
     Ok(session_token)
 }
 
-pub async fn get_telegram_id_by_token(pool: &DbPool, token: String) -> Result<i32> {
+pub async fn get_ids_by_token(pool: &DbPool, token: String) -> Result<((i32, Uuid))> {
     use crate::infra::db::schema::sessions::dsl::*;
     debug!("->> {:<12} - get_telegram_id_by_token", "INFRASTRUCTURE");
 
@@ -61,15 +61,15 @@ pub async fn get_telegram_id_by_token(pool: &DbPool, token: String) -> Result<i3
     // Convert String to Vec<u8>
     let session_token_bytes = token.parse::<u128>()?.to_le_bytes().to_vec();
 
-    let telegram_id = sessions
+    let user_db = sessions
         .filter(session_token.eq(session_token_bytes))
         .inner_join(users::table)
-        .select(users::telegram_id)
-        .first::<i32>(conn)
+        .select(UserDb::as_select())
+        .first::<UserDb>(conn)
         .await
         .map_err(|err| CarSharingError::from(err))?;
 
-    Ok(telegram_id)
+    Ok((user_db.telegram_id, user_db.id))
 }
 
 pub async fn delete_session(pool: &DbPool, token: String) -> Result<()> {

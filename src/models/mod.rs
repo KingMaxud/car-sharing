@@ -5,14 +5,13 @@ use serde_json::json;
 
 use crate::error::CarSharingError;
 
-pub mod car;
 pub mod order;
 pub mod session_token;
-pub mod user;
 
 #[derive(Debug, strum_macros::AsRefStr)]
 pub enum HandlerError {
     TelegramHashProblem,
+    OwnershipError,
     CarSharingError(CarSharingError),
 }
 
@@ -28,6 +27,10 @@ impl IntoResponse for HandlerError {
             Self::CarSharingError(db_error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Internal server error: {}", db_error),
+            ),
+            Self::OwnershipError => (
+                StatusCode::FORBIDDEN,
+                String::from("you don't have access to this action"),
             ),
             _ => (
                 StatusCode::INTERNAL_SERVER_ERROR,

@@ -95,9 +95,9 @@ pub async fn get_all(pool: &DbPool, _filter: CarsFilter) -> Result<Vec<CarRespon
         .await
         .map_err(|err| CarSharingError::from(err))?;
 
-    let car_responses: Vec<CarResponse> = res.into_iter().map(CarResponse::from).collect();
+    let list_response = res.into_iter().map(CarResponse::from).collect();
 
-    Ok(car_responses)
+    Ok(list_response)
 }
 
 pub async fn delete(pool: &DbPool, car_id: Uuid) -> Result<()> {

@@ -7,10 +7,11 @@ use uuid::Uuid;
 
 use crate::error::{CarSharingError, Result};
 use crate::handlers::{DbPool, get_conn};
-use crate::infra::db::schema::users;
+use crate::infra::db::schema::users as users_table;
+use crate::infra::db::schema::users::dsl::*;
 
 #[derive(Serialize, Queryable, Selectable)]
-#[diesel(table_name = users)]
+#[diesel(table_name = users_table)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct UserDb {
     pub id: Uuid,
@@ -21,19 +22,19 @@ pub struct UserDb {
 }
 
 #[derive(Deserialize, Insertable)]
-#[diesel(table_name = users)]
+#[diesel(table_name = users_table)]
 pub struct NewUserDb {
     pub telegram_id: i32,
 }
 
-pub async fn insert_if_not_exists(pool: &DbPool, telegram_id: i32) -> Result<Uuid> {
+pub async fn insert_if_not_exists(pool: &DbPool, telegram_id_req: i32) -> Result<Uuid> {
     debug!("->> {:<12} - insert_if_not_exists", "INFRASTRUCTURE");
 
     // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
-    let existing_user = users::table
-        .filter(users::telegram_id.eq(telegram_id))
+    let existing_user = users
+        .filter(telegram_id.eq(telegram_id_req))
         .first::<UserDb>(conn)
         .await
         .optional()
@@ -43,10 +44,12 @@ pub async fn insert_if_not_exists(pool: &DbPool, telegram_id: i32) -> Result<Uui
     let user_id = match existing_user {
         Some(user) => user.id, // User already exists, use their ID
         None => {
-            let new_user = NewUserDb { telegram_id }; // Create a new user struct
-            diesel::insert_into(users::table)
+            let new_user = NewUserDb {
+                telegram_id: telegram_id_req,
+            }; // Create a new user struct
+            diesel::insert_into(users)
                 .values(&new_user)
-                .returning(users::id)
+                .returning(id)
                 .get_result(conn)
                 .await
                 .map_err(|err| CarSharingError::from(err))?
@@ -54,4 +57,29 @@ pub async fn insert_if_not_exists(pool: &DbPool, telegram_id: i32) -> Result<Uui
     };
 
     Ok(user_id)
+}
+
+pub async fn check_if_admin(pool: &DbPool, user_id_req: Uuid) -> Result<bool> {
+    debug!("->> {:<12} - insert_if_not_exists", "INFRASTRUCTURE");
+
+    // Get a database connection from the pool and handle any potential errors
+    let conn = &mut get_conn(pool).await?;
+
+    let user_db = users
+        .filter(id.eq(user_id_req))
+        .first::<UserDb>(conn)
+        .await
+        .optional()
+        .map_err(|err| CarSharingError::from(err))?;
+
+    match user_db {
+        Some(user_db) => {
+            return if user_db.status == "ADMIN" {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+        None => Err(CarSharingError::DatabaseNotFound),
+    }
 }

@@ -20,7 +20,17 @@ use crate::handlers::cars::get_car::get_car;
 use crate::handlers::cars::list_cars::list_cars;
 use crate::handlers::cars::update_car::update_car;
 use crate::handlers::DbPool;
-use crate::middlewares::inject_user_data;
+use crate::handlers::orders::accept_order::accept_order;
+use crate::handlers::orders::cancel_order::cancel_order;
+use crate::handlers::orders::delete_order::delete_order;
+use crate::handlers::orders::finish_rent::finish_rent;
+use crate::handlers::orders::get_order::get_order;
+use crate::handlers::orders::list_orders::list_orders;
+use crate::handlers::orders::make_order::make_order;
+use crate::handlers::orders::orders_history::orders_history;
+use crate::handlers::orders::set_paid::set_paid;
+use crate::handlers::orders::start_rent::start_rent;
+use crate::middlewares::{inject_user_data, require_admin, require_auth};
 
 pub async fn app_router(db_url: &str) -> Router {
     let random = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
@@ -33,6 +43,8 @@ pub async fn app_router(db_url: &str) -> Router {
         .route("/", get(root))
         .merge(auth_routes())
         .nest("/cars", cars_routes())
+        .nest("/orders", orders_user_routes())
+        .nest("/orders", orders_admin_routes(pool.clone()))
         .layer(Extension(user_data))
         .layer(Extension(Arc::new(Mutex::new(random))))
         .layer(middleware::from_fn_with_state(
@@ -57,6 +69,26 @@ fn cars_routes() -> Router<DbPool> {
         .route("/:id", patch(update_car))
         .route("/:id", delete(delete_car))
         .route("/", get(list_cars))
+}
+
+fn orders_user_routes() -> Router<DbPool> {
+    Router::new()
+        .route("/orders_history", get(orders_history))
+        .route("/", post(make_order))
+        .route("/cancel/:id", patch(cancel_order))
+        .route_layer(middleware::from_fn(require_auth))
+}
+
+fn orders_admin_routes(pool: DbPool) -> Router<DbPool> {
+    Router::new()
+        .route("/:id", get(get_order))
+        .route("/", get(list_orders))
+        .route("/accept/:id", patch(accept_order))
+        .route("/:id", delete(delete_order))
+        .route("/finish/:id", patch(finish_rent))
+        .route("/set_paid/:id", patch(set_paid))
+        .route("/start/:id", patch(start_rent))
+        .route_layer(middleware::from_fn_with_state(pool, require_admin))
 }
 
 async fn root() -> &'static str {

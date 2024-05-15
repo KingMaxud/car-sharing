@@ -11,11 +11,11 @@ use crate::models::HandlerError;
 pub async fn update_car(
     State(pool): State<DbPool>,
     Path(id): Path<Uuid>,
-    Json(g): Json<UpdateCarRequest>,
+    Json(updated_car): Json<UpdateCarRequest>,
 ) -> Result<Json<CarResponse>, HandlerError> {
     debug!("->> {:<12} - update_car", "HANDLER");
 
-    let car = cars_service::update(&pool, id, g)
+    let car = cars_service::update(&pool, id, updated_car)
         .await
         .map_err(HandlerError::CarSharingError)?;
 

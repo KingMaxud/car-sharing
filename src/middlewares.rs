@@ -5,7 +5,7 @@ use tracing::log::debug;
 
 use crate::handlers::auth::{SESSION_TOKEN, UserData};
 use crate::handlers::DbPool;
-use crate::infra::services::sessions_service;
+use crate::infra::services::{sessions_service, users_service};
 use crate::models::HandlerError;
 
 pub async fn inject_user_data(
@@ -17,12 +17,15 @@ pub async fn inject_user_data(
     debug!("->> {:<12} - inject_user_data", "MIDDLEWARE");
 
     if let Some(session_token) = cookies.get(SESSION_TOKEN).map(|c| c.value().to_string()) {
-        let telegram_id = sessions_service::get_telegram_id_by_token(&pool, session_token)
+        let ids = sessions_service::get_ids_by_token(&pool, session_token)
             .await
             .map_err(HandlerError::CarSharingError);
 
-        if let Ok(telegram_id) = telegram_id {
-            request.extensions_mut().insert(UserData { telegram_id });
+        if let Ok(ids) = ids {
+            request.extensions_mut().insert(UserData {
+                telegram_id: ids.0,
+                user_id: ids.1,
+            });
         }
     }
 
@@ -37,6 +40,28 @@ pub async fn require_auth(
 
     if req.extensions().get::<UserData>().is_some() {
         Ok(next.run(req).await)
+    } else {
+        Ok(Redirect::to("/api/login").into_response())
+    }
+}
+
+pub async fn require_admin(
+    State(pool): State<DbPool>,
+    req: Request<Body>,
+    next: Next,
+) -> Result<impl IntoResponse, HandlerError> {
+    debug!("->> {:<12} - require_auth", "MIDDLEWARE");
+
+    if let Some(user_data) = req.extensions().get::<UserData>() {
+        let is_admin = users_service::check_if_admin(&pool, user_data.user_id)
+            .await
+            .map_err(HandlerError::CarSharingError)?;
+
+        if is_admin {
+            Ok(next.run(req).await)
+        } else {
+            Ok(Redirect::to("/api/login").into_response())
+        }
     } else {
         Ok(Redirect::to("/api/login").into_response())
     }
