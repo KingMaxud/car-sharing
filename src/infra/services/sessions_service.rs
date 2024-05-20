@@ -8,13 +8,15 @@ use uuid::Uuid;
 
 use crate::error::{CarSharingError, Result};
 use crate::handlers::{DbPool, get_conn};
-use crate::infra::{Random, services::users_service::UserDb};
-use crate::infra::db::schema::{sessions, users};
+use crate::infra::db::schema::{sessions as sessions_table, users};
+use crate::infra::db::schema::sessions::dsl::*;
+use crate::infra::Random;
+use crate::infra::services::users_service::UserDb;
 use crate::models::session_token::SessionToken;
 
 #[derive(Debug, Serialize, Queryable, Selectable, Associations)]
 #[diesel(belongs_to(UserDb, foreign_key = user_id))]
-#[diesel(table_name = sessions)]
+#[diesel(table_name = sessions_table)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct SessionDb {
     pub session_token: Vec<u8>,
@@ -22,37 +24,38 @@ pub struct SessionDb {
 }
 
 #[derive(Deserialize, Insertable)]
-#[diesel(table_name = sessions)]
-pub struct NewSession {
+#[diesel(table_name = sessions_table)]
+pub struct NewSessionDb {
     session_token: Vec<u8>,
     user_id: Uuid,
 }
 
-pub async fn new_session(pool: &DbPool, user_id: Uuid, random: Random) -> Result<SessionToken> {
+pub async fn new_session(pool: &DbPool, user_id_req: Uuid, random: Random) -> Result<SessionToken> {
     debug!("->> {:<12} - new_session", "INFRASTRUCTURE");
 
     // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
-    let session_token = SessionToken::generate_new(random);
+    // Generate new token
+    let session_token_generated = SessionToken::generate_new(random);
 
-    let new_session = NewSession {
-        session_token: session_token.into_database_value(),
-        user_id,
+    // Create NewSession to insert into db
+    let new_session = NewSessionDb {
+        session_token: session_token_generated.into_database_value(),
+        user_id: user_id_req,
     };
 
-    diesel::insert_into(sessions::table)
+    diesel::insert_into(sessions)
         .values(new_session)
         .returning(SessionDb::as_returning())
         .get_result(conn)
         .await
         .map_err(|err| CarSharingError::from(err))?;
 
-    Ok(session_token)
+    Ok(session_token_generated)
 }
 
 pub async fn get_ids_by_token(pool: &DbPool, token: String) -> Result<((i32, Uuid))> {
-    use crate::infra::db::schema::sessions::dsl::*;
     debug!("->> {:<12} - get_telegram_id_by_token", "INFRASTRUCTURE");
 
     // Get a database connection from the pool and handle any potential errors
@@ -89,4 +92,95 @@ pub async fn delete_session(pool: &DbPool, token: String) -> Result<()> {
         .map_err(|err| CarSharingError::from(err))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager};
+    use rand_chacha::ChaCha8Rng;
+    use rand_core::{OsRng, RngCore, SeedableRng};
+    use serial_test::serial;
+
+    use super::*;
+
+    async fn create_connection_pool() -> DbPool {
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
+            "postgres://postgres:postgres@localhost/car-sharing-tests",
+        );
+        bb8::Pool::builder().build(manager).await.unwrap()
+    }
+
+    async fn get_first_session(pool: &DbPool) -> SessionDb {
+        let conn = &mut get_conn(pool).await.unwrap();
+
+        sessions
+            .first::<SessionDb>(conn)
+            .await
+            .map_err(|err| CarSharingError::from(err))
+            .expect("Can't find a session")
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_01_clear_sessions_database() {
+        let pool = create_connection_pool().await;
+
+        let conn = &mut get_conn(&pool).await.unwrap();
+
+        diesel::delete(sessions.filter(session_token.is_not_null()))
+            .execute(conn)
+            .await
+            .map_err(|err| CarSharingError::from(err))
+            .unwrap();
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_02_new_session() {
+        let pool = create_connection_pool().await;
+
+        let random = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
+
+        assert!(!new_session(
+            &pool,
+            Uuid::parse_str("9cd7afb5-20b3-48cf-b991-bbbec35d388f").unwrap(),
+            Arc::new(Mutex::new(random)),
+        )
+        .await
+        .is_err());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_03_get_ids_by_token() {
+        let pool = create_connection_pool().await;
+
+        let session_token_res = get_first_session(&pool).await;
+
+        let mut arr = [0u8; 16];
+
+        arr.copy_from_slice(&session_token_res.session_token);
+
+        let session_token_string = u128::from_le_bytes(arr).to_string();
+
+        assert!(!get_ids_by_token(&pool, session_token_string).await.is_err());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_04_delete_session() {
+        let pool = create_connection_pool().await;
+
+        let session_token_res = get_first_session(&pool).await;
+
+        let mut arr = [0u8; 16];
+
+        arr.copy_from_slice(&session_token_res.session_token);
+
+        let session_token_string = u128::from_le_bytes(arr).to_string();
+
+        assert!(!delete_session(&pool, session_token_string).await.is_err());
+    }
 }

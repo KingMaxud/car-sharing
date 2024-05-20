@@ -12,14 +12,14 @@ pub mod update_car;
 
 #[derive(Debug, Serialize)]
 pub struct CarResponse {
-    id: Uuid,
-    name: String,
-    hourly_rate: i32,
-    daily_rate: i32,
-    weekly_rate: i32,
-    photos: Option<Vec<Option<String>>>,
-    status: String,
-    created_at: NaiveDateTime,
+    pub id: Uuid,
+    pub name: String,
+    pub hourly_rate: i32,
+    pub daily_rate: i32,
+    pub weekly_rate: i32,
+    pub photos: Option<Vec<Option<String>>>,
+    pub status: String,
+    pub created_at: NaiveDateTime,
 }
 
 impl From<CarDb> for CarResponse {

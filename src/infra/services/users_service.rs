@@ -33,6 +33,7 @@ pub async fn insert_if_not_exists(pool: &DbPool, telegram_id_req: i32) -> Result
     // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
+    // Get existing user if exists
     let existing_user = users
         .filter(telegram_id.eq(telegram_id_req))
         .first::<UserDb>(conn)
@@ -74,12 +75,46 @@ pub async fn check_if_admin(pool: &DbPool, user_id_req: Uuid) -> Result<bool> {
 
     match user_db {
         Some(user_db) => {
-            return if user_db.status == "ADMIN" {
+            return if user_db.role == "admin" {
                 Ok(true)
             } else {
                 Ok(false)
             }
         }
         None => Err(CarSharingError::DatabaseNotFound),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use diesel::sql_query;
+    use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager};
+
+    use super::*;
+
+    async fn create_connection_pool() -> DbPool {
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
+            "postgres://postgres:postgres@localhost/car-sharing-tests",
+        );
+        bb8::Pool::builder().build(manager).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn health_checker() {
+        let pool = create_connection_pool().await;
+
+        let conn = &mut get_conn(&pool).await.unwrap();
+
+        let res = sql_query("SELECT 1").execute(conn).await;
+        assert!(!res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_insert_if_not_exists() {
+        let pool = create_connection_pool().await;
+
+        let user_id = insert_if_not_exists(&pool, 443621429)
+            .await
+            .expect("Failed to insert user or retrieve existing ID");
     }
 }

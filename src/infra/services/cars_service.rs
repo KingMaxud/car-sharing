@@ -100,19 +100,6 @@ pub async fn get_all(pool: &DbPool, _filter: CarsFilter) -> Result<Vec<CarRespon
     Ok(list_response)
 }
 
-pub async fn delete(pool: &DbPool, car_id: Uuid) -> Result<()> {
-    debug!("->> {:<12} - delete", "INFRASTRUCTURE");
-
-    let conn = &mut get_conn(pool).await?;
-
-    diesel::delete(cars.filter(id.eq(car_id)))
-        .execute(conn)
-        .await
-        .map_err(|err| CarSharingError::from(err))?;
-
-    Ok(())
-}
-
 pub async fn update(
     pool: &DbPool,
     car_id: Uuid,
@@ -138,4 +125,126 @@ pub async fn update(
         .map_err(|err| CarSharingError::from(err))?;
 
     Ok(CarResponse::from(res))
+}
+
+pub async fn delete(pool: &DbPool, car_id: Uuid) -> Result<()> {
+    debug!("->> {:<12} - delete", "INFRASTRUCTURE");
+
+    let conn = &mut get_conn(pool).await?;
+
+    diesel::delete(cars.filter(id.eq(car_id)))
+        .execute(conn)
+        .await
+        .map_err(|err| CarSharingError::from(err))?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager};
+    use serial_test::serial;
+
+    use super::*;
+
+    async fn create_connection_pool() -> DbPool {
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
+            "postgres://postgres:postgres@localhost/car-sharing-tests",
+        );
+        bb8::Pool::builder().build(manager).await.unwrap()
+    }
+
+    async fn get_first_car(pool: &DbPool) -> CarDb {
+        let conn = &mut get_conn(pool).await.unwrap();
+
+        cars.first::<CarDb>(conn)
+            .await
+            .map_err(|err| CarSharingError::from(err))
+            .expect("Can't find a car")
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_01_clear_cars_database() {
+        let pool = create_connection_pool().await;
+
+        let conn = &mut get_conn(&pool).await.unwrap();
+
+        diesel::delete(cars.filter(id.is_not_null()))
+            .execute(conn)
+            .await
+            .map_err(|err| CarSharingError::from(err))
+            .unwrap();
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_02_insert() {
+        let pool = create_connection_pool().await;
+
+        let conn = &mut get_conn(&pool).await.unwrap();
+
+        let new_car = NewCarDb {
+            name: "".to_string(),
+            hourly_rate: 0,
+            daily_rate: 0,
+            weekly_rate: 0,
+            photos: Option::from(vec![Option::from("none".to_string())]),
+            status: "".to_string(),
+        };
+
+        assert!(!insert(&pool, new_car).await.is_err());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_03_get() {
+        let pool = create_connection_pool().await;
+
+        let get_car_res = get_first_car(&pool).await;
+
+        assert!(!get(&pool, get_car_res.id).await.is_err());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_04_get_all() {
+        let pool = create_connection_pool().await;
+
+        let cars_filter = CarsFilter { status: None };
+
+        assert!(!get_all(&pool, cars_filter).await.is_err())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_05_update() {
+        let pool = create_connection_pool().await;
+
+        let get_car_res = get_first_car(&pool).await;
+
+        let update_car_req = UpdateCarRequest {
+            name: None,
+            hourly_rate: Option::from(5),
+            daily_rate: None,
+            weekly_rate: None,
+            status: None,
+        };
+
+        let res = update(&pool, get_car_res.id, update_car_req)
+            .await
+            .expect("Error in updating");
+
+        assert_eq!(res.hourly_rate, 5)
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_06_delete() {
+        let pool = create_connection_pool().await;
+
+        let get_car_res = get_first_car(&pool).await;
+
+        assert!(!delete(&pool, get_car_res.id).await.is_err())
+    }
 }
