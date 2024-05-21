@@ -103,6 +103,8 @@ mod tests {
     use rand_core::{OsRng, RngCore, SeedableRng};
     use serial_test::serial;
 
+    use crate::infra::services::users_service::insert_if_not_exists;
+
     use super::*;
 
     async fn create_connection_pool() -> DbPool {
@@ -143,13 +145,15 @@ mod tests {
 
         let random = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
 
-        assert!(!new_session(
-            &pool,
-            Uuid::parse_str("9cd7afb5-20b3-48cf-b991-bbbec35d388f").unwrap(),
-            Arc::new(Mutex::new(random)),
-        )
-        .await
-        .is_err());
+        let user_id_res = insert_if_not_exists(&pool, 443621429)
+            .await
+            .expect("Failed to insert user or retrieve existing ID");
+
+        assert!(
+            !new_session(&pool, user_id_res, Arc::new(Mutex::new(random)),)
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]

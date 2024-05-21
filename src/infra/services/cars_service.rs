@@ -56,6 +56,7 @@ struct UpdateCarChangeset {
 pub async fn insert(pool: &DbPool, new_car: NewCarDb) -> Result<CarResponse> {
     debug!("->> {:<12} - insert", "INFRASTRUCTURE");
 
+    // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
     let res = diesel::insert_into(cars)
@@ -70,6 +71,7 @@ pub async fn insert(pool: &DbPool, new_car: NewCarDb) -> Result<CarResponse> {
 pub async fn get(pool: &DbPool, car_id: Uuid) -> Result<CarResponse> {
     debug!("->> {:<12} - get", "INFRASTRUCTURE");
 
+    // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
     let res = cars
@@ -85,8 +87,10 @@ pub async fn get(pool: &DbPool, car_id: Uuid) -> Result<CarResponse> {
 pub async fn get_all(pool: &DbPool, _filter: CarsFilter) -> Result<Vec<CarResponse>> {
     debug!("->> {:<12} - get_all", "INFRASTRUCTURE");
 
+    // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
+    // Create a query to add filters later
     let mut query = cars.into_boxed::<diesel::pg::Pg>();
 
     let res = query
@@ -95,6 +99,7 @@ pub async fn get_all(pool: &DbPool, _filter: CarsFilter) -> Result<Vec<CarRespon
         .await
         .map_err(|err| CarSharingError::from(err))?;
 
+    // Make Vec<CarResponse> from res
     let list_response = res.into_iter().map(CarResponse::from).collect();
 
     Ok(list_response)
@@ -107,6 +112,7 @@ pub async fn update(
 ) -> Result<CarResponse> {
     debug!("->> {:<12} - update", "INFRASTRUCTURE");
 
+    // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
     let changeset = UpdateCarChangeset {
@@ -130,6 +136,7 @@ pub async fn update(
 pub async fn delete(pool: &DbPool, car_id: Uuid) -> Result<()> {
     debug!("->> {:<12} - delete", "INFRASTRUCTURE");
 
+    // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
     diesel::delete(cars.filter(id.eq(car_id)))
@@ -184,7 +191,7 @@ mod tests {
 
         let conn = &mut get_conn(&pool).await.unwrap();
 
-        let new_car = NewCarDb {
+        let new_car_db = NewCarDb {
             name: "".to_string(),
             hourly_rate: 0,
             daily_rate: 0,
@@ -193,7 +200,7 @@ mod tests {
             status: "".to_string(),
         };
 
-        assert!(!insert(&pool, new_car).await.is_err());
+        assert!(!insert(&pool, new_car_db).await.is_err());
     }
 
     #[tokio::test]
@@ -233,7 +240,7 @@ mod tests {
 
         let res = update(&pool, get_car_res.id, update_car_req)
             .await
-            .expect("Error in updating");
+            .expect("Failed to update a car");
 
         assert_eq!(res.hourly_rate, 5)
     }

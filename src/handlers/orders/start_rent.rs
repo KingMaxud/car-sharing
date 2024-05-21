@@ -4,8 +4,8 @@ use chrono::Utc;
 use tracing::log::debug;
 use uuid::Uuid;
 
-use crate::handlers::orders::{OrderResponse, UpdateOrderDb};
 use crate::handlers::DbPool;
+use crate::handlers::orders::{OrderResponse, UpdateOrderDb};
 use crate::infra::services::orders_service;
 use crate::models::HandlerError;
 
@@ -20,7 +20,7 @@ pub async fn start_rent(
     let finished_request = UpdateOrderDb {
         start_rent_time: Option::from(now.naive_utc()),
         end_rent_time: None,
-        status: Option::from("PROCESSING".to_string()),
+        status: Option::from("processing".to_string()),
         paid: None,
         updated_at: Option::from(now.naive_utc()),
     };

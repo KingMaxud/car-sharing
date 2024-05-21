@@ -20,7 +20,7 @@ pub async fn finish_rent(
     let finished_request = UpdateOrderDb {
         start_rent_time: None,
         end_rent_time: Option::from(now.naive_utc()),
-        status: Option::from("FINISHED".to_string()),
+        status: Option::from("finished".to_string()),
         paid: None,
         updated_at: Option::from(now.naive_utc()),
     };

@@ -22,7 +22,7 @@ pub async fn accept_order(
     let accept_request = UpdateOrderDb {
         start_rent_time: None,
         end_rent_time: None,
-        status: Option::from("ACCEPTED".to_string()),
+        status: Option::from("accepted".to_string()),
         paid: None,
         updated_at: Option::from(now.naive_utc()),
     };

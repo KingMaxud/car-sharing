@@ -19,15 +19,15 @@ pub mod start_rent;
 
 #[derive(Debug, Serialize)]
 pub struct OrderResponse {
-    id: Uuid,
-    user_id: Uuid,
-    car_id: Uuid,
-    start_rent_time: Option<NaiveDateTime>,
-    end_rent_time: Option<NaiveDateTime>,
-    status: String,
-    paid: bool,
-    created_at: NaiveDateTime,
-    updated_at: Option<NaiveDateTime>,
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub car_id: Uuid,
+    pub start_rent_time: Option<NaiveDateTime>,
+    pub end_rent_time: Option<NaiveDateTime>,
+    pub status: String,
+    pub paid: bool,
+    pub created_at: NaiveDateTime,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 impl From<OrderDb> for OrderResponse {

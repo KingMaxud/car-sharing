@@ -29,7 +29,7 @@ pub async fn cancel_order(
         let cancel_request = UpdateOrderDb {
             start_rent_time: None,
             end_rent_time: None,
-            status: Option::from("CANCELLED".to_string()),
+            status: Option::from("cancelled".to_string()),
             paid: None,
             updated_at: Option::from(now.naive_utc()),
         };
