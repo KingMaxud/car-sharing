@@ -17,7 +17,7 @@ pub async fn start_rent(
 
     let now = Utc::now();
 
-    let finished_request = UpdateOrderDb {
+    let started_request = UpdateOrderDb {
         start_rent_time: Option::from(now.naive_utc()),
         end_rent_time: None,
         status: Option::from("processing".to_string()),
@@ -25,9 +25,9 @@ pub async fn start_rent(
         updated_at: Option::from(now.naive_utc()),
     };
 
-    let finished_rent = orders_service::update(&pool, order_id, finished_request)
+    let started_rent = orders_service::update(&pool, order_id, started_request)
         .await
         .map_err(HandlerError::CarSharingError)?;
 
-    Ok(Json(finished_rent))
+    Ok(Json(started_rent))
 }

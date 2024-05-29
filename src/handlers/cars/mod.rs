@@ -44,7 +44,6 @@ pub struct CreateCarRequest {
     daily_rate: i32,
     weekly_rate: i32,
     photos: Option<Vec<Option<String>>>,
-    status: String,
 }
 #[derive(Debug, Deserialize)]
 pub struct UpdateCarRequest {

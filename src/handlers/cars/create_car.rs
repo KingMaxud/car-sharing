@@ -18,7 +18,6 @@ pub async fn create_car(
         daily_rate: new_car.daily_rate,
         weekly_rate: new_car.weekly_rate,
         photos: new_car.photos,
-        status: new_car.status,
     };
 
     let created_car = cars_service::insert(&pool, new_car_db).await?;

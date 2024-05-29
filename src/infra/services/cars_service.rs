@@ -35,7 +35,6 @@ pub struct NewCarDb {
     pub daily_rate: i32,
     pub weekly_rate: i32,
     pub photos: Option<Vec<Option<String>>>,
-    pub status: String,
 }
 
 #[derive(Deserialize)]

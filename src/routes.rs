@@ -42,7 +42,7 @@ pub async fn app_router(db_url: &str) -> Router {
     Router::new()
         .route("/", get(root))
         .merge(auth_routes())
-        .nest("/cars", cars_routes())
+        .nest("/cars", cars_routes(pool.clone()))
         .nest("/orders", orders_user_routes())
         .nest("/orders", orders_admin_routes(pool.clone()))
         .layer(Extension(user_data))
@@ -59,21 +59,22 @@ pub async fn app_router(db_url: &str) -> Router {
 fn auth_routes() -> Router<DbPool> {
     Router::new()
         .route("/login", post(login))
-        .route("/logout", get(logout))
+        .route("/logout", post(logout))
 }
 
-fn cars_routes() -> Router<DbPool> {
+fn cars_routes(pool: DbPool) -> Router<DbPool> {
     Router::new()
         .route("/", post(create_car))
         .route("/:id", get(get_car))
         .route("/:id", patch(update_car))
         .route("/:id", delete(delete_car))
         .route("/", get(list_cars))
+        .route_layer(middleware::from_fn_with_state(pool, require_admin))
 }
 
 fn orders_user_routes() -> Router<DbPool> {
     Router::new()
-        .route("/orders_history", get(orders_history))
+        .route("/history", get(orders_history))
         .route("/", post(make_order))
         .route("/cancel/:id", patch(cancel_order))
         .route_layer(middleware::from_fn(require_auth))

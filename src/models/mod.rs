@@ -5,7 +5,6 @@ use serde_json::json;
 
 use crate::error::CarSharingError;
 
-pub mod order;
 pub mod session_token;
 
 #[derive(Debug, strum_macros::AsRefStr)]

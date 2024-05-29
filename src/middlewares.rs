@@ -50,7 +50,7 @@ pub async fn require_admin(
     req: Request<Body>,
     next: Next,
 ) -> Result<impl IntoResponse, HandlerError> {
-    debug!("->> {:<12} - require_auth", "MIDDLEWARE");
+    debug!("->> {:<12} - require_admin", "MIDDLEWARE");
 
     if let Some(user_data) = req.extensions().get::<UserData>() {
         let is_admin = users_service::check_if_admin(&pool, user_data.user_id)
