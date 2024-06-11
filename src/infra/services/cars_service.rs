@@ -196,7 +196,6 @@ mod tests {
             daily_rate: 0,
             weekly_rate: 0,
             photos: Option::from(vec![Option::from("none".to_string())]),
-            status: "".to_string(),
         };
 
         assert!(!insert(&pool, new_car_db).await.is_err());

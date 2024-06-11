@@ -204,7 +204,6 @@ mod tests {
             daily_rate: 0,
             weekly_rate: 0,
             photos: Option::from(vec![Option::from("none".to_string())]),
-            status: "".to_string(),
         };
 
         let new_car_res = cars_service::insert(&pool, new_car_db)
