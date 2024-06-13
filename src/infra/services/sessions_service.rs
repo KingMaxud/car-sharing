@@ -55,7 +55,7 @@ pub async fn new_session(pool: &DbPool, user_id_req: Uuid, random: Random) -> Re
     Ok(session_token_generated)
 }
 
-pub async fn get_ids_by_token(pool: &DbPool, token: String) -> Result<((i32, Uuid))> {
+pub async fn get_ids_by_token(pool: &DbPool, token: String) -> Result<(i32, Uuid)> {
     debug!("->> {:<12} - get_telegram_id_by_token", "INFRASTRUCTURE");
 
     // Get a database connection from the pool and handle any potential errors
@@ -103,14 +103,15 @@ mod tests {
     use rand_core::{OsRng, RngCore, SeedableRng};
     use serial_test::serial;
 
+    use crate::config::config;
     use crate::infra::services::users_service::insert_if_not_exists;
 
     use super::*;
 
     async fn create_connection_pool() -> DbPool {
-        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
-            "postgres://postgres:postgres@localhost/car-sharing-tests",
-        );
+        let config = config().await;
+
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(config.db_url());
         bb8::Pool::builder().build(manager).await.unwrap()
     }
 

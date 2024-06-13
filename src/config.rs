@@ -19,11 +19,15 @@ pub struct Config {
     server: ServerConfig,
     db: DatabaseConfig,
     bot_token: String,
+    admin_ids: String,
 }
 
 impl Config {
     pub fn db_url(&self) -> &str {
         &self.db.url
+    }
+    pub fn admin_ids(&self) -> &str {
+        &self.admin_ids
     }
 
     pub fn server_port(&self) -> u16 {
@@ -61,6 +65,7 @@ async fn init_config() -> Config {
         server: server_config,
         db: database_config,
         bot_token: env::var("BOT_TOKEN").expect("BOT_TOKEN must be set"),
+        admin_ids: env::var("ADMIN_IDS").expect("ADMIN_IDS must be set"),
     }
 }
 

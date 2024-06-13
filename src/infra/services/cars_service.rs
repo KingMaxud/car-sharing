@@ -90,7 +90,7 @@ pub async fn get_all(pool: &DbPool, _filter: CarsFilter) -> Result<Vec<CarRespon
     let conn = &mut get_conn(pool).await?;
 
     // Create a query to add filters later
-    let mut query = cars.into_boxed::<diesel::pg::Pg>();
+    let query = cars.into_boxed::<diesel::pg::Pg>();
 
     let res = query
         .select(CarDb::as_select())
@@ -151,12 +151,14 @@ mod tests {
     use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager};
     use serial_test::serial;
 
+    use crate::config::config;
+
     use super::*;
 
     async fn create_connection_pool() -> DbPool {
-        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
-            "postgres://postgres:postgres@localhost/car-sharing-tests",
-        );
+        let config = config().await;
+
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(config.db_url());
         bb8::Pool::builder().build(manager).await.unwrap()
     }
 
@@ -187,8 +189,6 @@ mod tests {
     #[serial]
     async fn test_02_insert() {
         let pool = create_connection_pool().await;
-
-        let conn = &mut get_conn(&pool).await.unwrap();
 
         let new_car_db = NewCarDb {
             name: "".to_string(),

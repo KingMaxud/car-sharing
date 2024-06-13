@@ -1,11 +1,11 @@
-use axum::{Extension, Json};
-use axum::extract::{Path, State};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use chrono::Utc;
 use tracing::log::debug;
 use uuid::Uuid;
 
-use crate::error::CarSharingError;
-use crate::handlers::auth::UserData;
 use crate::handlers::DbPool;
 use crate::handlers::orders::{OrderResponse, UpdateOrderDb};
 use crate::infra::services::orders_service;

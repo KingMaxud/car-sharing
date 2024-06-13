@@ -4,10 +4,9 @@ use chrono::Utc;
 use tracing::log::debug;
 use uuid::Uuid;
 
-use crate::error::CarSharingError;
 use crate::handlers::auth::UserData;
 use crate::handlers::DbPool;
-use crate::handlers::orders::{OrderResponse, UpdateOrderDb};
+use crate::handlers::orders::UpdateOrderDb;
 use crate::infra::services::orders_service;
 use crate::models::HandlerError;
 

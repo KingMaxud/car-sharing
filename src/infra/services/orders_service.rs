@@ -150,6 +150,7 @@ mod tests {
     use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager};
     use serial_test::serial;
 
+    use crate::config::config;
     use crate::infra::services::cars_service;
     use crate::infra::services::cars_service::NewCarDb;
     use crate::infra::services::users_service::insert_if_not_exists;
@@ -157,9 +158,9 @@ mod tests {
     use super::*;
 
     async fn create_connection_pool() -> DbPool {
-        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
-            "postgres://postgres:postgres@localhost/car-sharing-tests",
-        );
+        let config = config().await;
+
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(config.db_url());
         bb8::Pool::builder().build(manager).await.unwrap()
     }
 
@@ -191,8 +192,6 @@ mod tests {
     #[serial]
     async fn test_02_insert() {
         let pool = create_connection_pool().await;
-
-        let conn = &mut get_conn(&pool).await.unwrap();
 
         let user_id_res = insert_if_not_exists(&pool, 443621429)
             .await

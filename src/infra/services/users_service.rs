@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tracing::log::debug;
 use uuid::Uuid;
 
+use crate::config::config;
 use crate::error::{CarSharingError, Result};
 use crate::handlers::{DbPool, get_conn};
 use crate::infra::db::schema::users as users_table;
@@ -66,6 +67,14 @@ pub async fn check_if_admin(pool: &DbPool, user_id_req: Uuid) -> Result<bool> {
     // Get a database connection from the pool and handle any potential errors
     let conn = &mut get_conn(pool).await?;
 
+    let config = config().await;
+
+    let admin_ids: Vec<i32> = config
+        .admin_ids()
+        .split(',')
+        .map(|s| s.trim().parse().expect("Invalid integer"))
+        .collect();
+
     let user_db = users
         .filter(id.eq(user_id_req))
         .first::<UserDb>(conn)
@@ -75,7 +84,7 @@ pub async fn check_if_admin(pool: &DbPool, user_id_req: Uuid) -> Result<bool> {
 
     match user_db {
         Some(user_db) => {
-            return if user_db.role == "admin" {
+            if admin_ids.contains(&user_db.telegram_id) {
                 Ok(true)
             } else {
                 Ok(false)
@@ -90,12 +99,14 @@ mod tests {
     use diesel::sql_query;
     use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager};
 
+    use crate::config::config;
+
     use super::*;
 
     async fn create_connection_pool() -> DbPool {
-        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
-            "postgres://postgres:postgres@localhost/car-sharing-tests",
-        );
+        let config = config().await;
+
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(config.db_url());
         bb8::Pool::builder().build(manager).await.unwrap()
     }
 
@@ -113,7 +124,7 @@ mod tests {
     async fn test_insert_if_not_exists() {
         let pool = create_connection_pool().await;
 
-        let user_id = insert_if_not_exists(&pool, 443621429)
+        insert_if_not_exists(&pool, 443621429)
             .await
             .expect("Failed to insert user or retrieve existing ID");
     }
