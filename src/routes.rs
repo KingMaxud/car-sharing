@@ -30,11 +30,14 @@ use crate::handlers::orders::make_order::make_order;
 use crate::handlers::orders::orders_history::orders_history;
 use crate::handlers::orders::set_paid::set_paid;
 use crate::handlers::orders::start_rent::start_rent;
+use crate::infra::db::run_migrations;
 use crate::middlewares::{inject_user_data, require_admin, require_auth};
 
 pub async fn app_router(db_url: &str) -> Router {
     let random = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
     let user_data: Option<UserData> = None;
+
+    run_migrations(db_url);
 
     let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(db_url);
     let pool = bb8::Pool::builder().build(manager).await.unwrap();
