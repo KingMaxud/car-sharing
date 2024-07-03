@@ -1,34 +1,34 @@
 version: '3.8'
 
 services:
+  app:
+    build: .
+    links:
+      - db
+    ports:
+      - "0606:0606"
+    volumes:
+      - ./:/usr/src/app
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db/car-sharing-docker
+      PORT: "0606"
+      HOST: "0.0.0.0"
+      RUST_LOG: "debug"
+    command: >
+      bash -c "bash ./scripts/wait-for-it.sh db:5432 -q --
+      diesel setup && diesel migration redo &&
+      cargo run"
+
   db:
     image: postgres:latest
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: car-sharing
+      POSTGRES_DB: car-sharing-docker
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  app:
-    build: .
-    environment:
-      DATABASE_URL: postgres://postgres:postgres@db/car-sharing
-      PORT: "0606"
-      HOST: "0.0.0.0"
-      RUST_LOG: "debug"
-    depends_on:
-      - db
-    ports:
-      - "0606:0606"
-    entrypoint: >
-      sh -c "
-      diesel setup &&
-      diesel migration run &&
-      car-sharing
-      "
 
 volumes:
   postgres_data:
