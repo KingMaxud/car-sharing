@@ -15,7 +15,7 @@ services:
       HOST: "0.0.0.0"
       RUST_LOG: "debug"
     command: >
-      bash -c "bash ./scripts/wait-for-it.sh db:5432 -q --
+      bash -c "bash ./scripts/wait-for-it.sh db:5432 -q &&
       diesel setup && diesel migration redo &&
       cargo run"
 
