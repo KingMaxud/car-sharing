@@ -29,7 +29,13 @@ RUN cargo build --release
 FROM ubuntu:latest
 
 # Install required libraries
-RUN apt-get update && apt-get install -y libpq5 libpq-dev
+RUN apt-get update && apt-get install -y \
+    libpq5 libpq-dev curl gnupg
+
+# Install Hurl for API testing
+RUN curl -LO https://github.com/Orange-OpenSource/hurl/releases/download/4.3.0/hurl_4.3.0_amd64.deb && \
+    apt-get update && apt-get install -y ./hurl_4.3.0_amd64.deb && \
+    rm hurl_4.3.0_amd64.deb
 
 # Create a new user for security reasons
 RUN useradd -ms /bin/bash appuser
@@ -51,6 +57,10 @@ COPY --from=builder /usr/local/cargo/bin/diesel /usr/local/bin/diesel
 # Copy source code and set permissions
 COPY . .
 RUN chown -R appuser:appuser /app
+
+# Copy the scripts and make them executable
+COPY scripts /usr/local/bin/scripts
+RUN chmod +x /usr/local/bin/scripts/*.sh
 
 # Set environment variables
 ENV DATABASE_URL=${DATABASE_URL}
